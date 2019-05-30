@@ -1,0 +1,241 @@
+#include "../LevelEditor/ColorPicker.hpp"
+
+#include "../LevelEditor/LevelEditor.hpp"
+
+ColorPickerWindow::ColorPickerWindow(tgui::Gui& gui)
+{
+    this->shader.loadFromFile("tempshader.vert","tempshader.frag");//TODO loadFromMemory when its done
+    this->window = tgui::ChildWindow::create();
+    this->window->setTitle("Color picker");
+    this->window->setSize(310,530);
+    //this->window->hide(); //TODO hide
+    this->window->connect("MousePressed",[&](sf::Vector2f mouse)
+    {
+
+        const sf::Vector2f center = this->window->get("colorPickerCanvas")->getAbsolutePosition()+sf::Vector2f(150.0f,150.0f);
+        const float distance = Math::distance(center,mouse);
+        if(distance<150&&distance>120)
+        {
+            this->holdOutside = true;
+        }
+        else if (distance <= 120&&Math::triangle_contains(mouse,triangle0,triangle1,triangle2))
+        {
+            this->holdInside = true;
+        }
+    });
+
+
+    tgui::Canvas::Ptr canvas = tgui::Canvas::create({300.f,300.f});
+    canvas->setPosition(5,5);
+    canvas->clear(sf::Color(230,230,230)); //Default background color of tgui
+    sf::RectangleShape rect;
+    rect.setSize(sf::Vector2f(300,300));
+    sf::RenderStates states;
+    states.shader = &this->shader;
+    canvas->draw(rect,states);
+    canvas->display();
+
+    this->window->add(canvas,"colorPickerCanvas");
+
+    auto rLabel = tgui::Label::create();
+    rLabel->setText("R:");
+    rLabel->setPosition(5,310);
+    rLabel->setSize(20,20);
+    this->window->add(rLabel);
+    auto rValue = tgui::EditBox::create();
+    rValue->setSize(120,20);
+    rValue->setPosition(30,310);
+    //rValue->setInputValidator("^(1?[0-9]{1,2}|2[0-4][0-9]|25[0-5])$"); //TODO uncomment
+    this->window->add(rValue,"rValue");
+
+    auto gLabel = tgui::Label::create();
+    gLabel->setText("G:");
+    gLabel->setPosition(5,340);
+    gLabel->setSize(20,20);
+    this->window->add(gLabel);
+    auto gValue = tgui::EditBox::create();
+    gValue->setSize(120,20);
+    gValue->setPosition(30,340);
+    gValue->setInputValidator("^(1?[0-9]{1,2}|2[0-4][0-9]|25[0-5])$");
+    this->window->add(gValue,"gValue");
+
+    auto bLabel = tgui::Label::create();
+    bLabel->setText("B:");
+    bLabel->setPosition(5,370);
+    bLabel->setSize(20,20);
+    this->window->add(bLabel);
+    auto bValue = tgui::EditBox::create();
+    bValue->setSize(120,20);
+    bValue->setPosition(30,370);
+    bValue->setInputValidator("^(1?[0-9]{1,2}|2[0-4][0-9]|25[0-5])$");
+    this->window->add(bValue,"bValue");
+
+    auto hLabel = tgui::Label::create();
+    hLabel->setText("H:");
+    hLabel->setPosition(160,310);
+    hLabel->setSize(20,20);
+    this->window->add(hLabel);
+    auto hValue = tgui::EditBox::create();
+    hValue->setSize(120,20);
+    hValue->setPosition(185,310);
+    hValue->setInputValidator("^-?[0-9]*$");
+    hValue->setMaximumCharacters(5);
+    this->window->add(hValue,"hValue");
+
+    auto sLabel = tgui::Label::create();
+    sLabel->setText("S:");
+    sLabel->setPosition(160,340);
+    sLabel->setSize(20,20);
+    this->window->add(sLabel);
+    auto sValue = tgui::EditBox::create();
+    sValue->setSize(120,20);
+    sValue->setPosition(185,340);
+    sValue->setInputValidator("^(1?[0-9]{1,2}|2[0-4][0-9]|25[0-5])$");
+    this->window->add(sValue,"sValue");
+
+    auto vLabel = tgui::Label::create();
+    vLabel->setText("V:");
+    vLabel->setPosition(160,370);
+    vLabel->setSize(20,20);
+    this->window->add(vLabel);
+    auto vValue = tgui::EditBox::create();
+    vValue->setSize(120,20);
+    vValue->setPosition(185,370);
+    vValue->setInputValidator("^(1?[0-9]{1,2}|2[0-4][0-9]|25[0-5])$");
+    this->window->add(vValue,"vValue");
+
+    gui.add(this->window);
+}
+
+void ColorPickerWindow::event(sf::Event& e)
+{
+    if(e.type == sf::Event::MouseButtonReleased)
+    {
+        this->holdOutside = false;
+        this->holdInside = false;
+    }
+    else if(e.type == sf::Event::MouseMoved)
+    {
+        if(this->holdOutside)
+        {
+            //Calculate angle
+            const sf::Vector2f center = this->window->get("colorPickerCanvas")->getAbsolutePosition()+sf::Vector2f(150.0f,150.0f);
+            const float angle = std::atan2(e.mouseMove.x-center.x,e.mouseMove.y-center.y);
+
+            //Update canvas
+            tgui::Canvas::Ptr canvas = std::static_pointer_cast<tgui::Canvas>(this->window->get("colorPickerCanvas"));
+            canvas->clear(sf::Color(230,230,230)); //Default background color of tgui
+            sf::RectangleShape rect;
+            rect.setSize(sf::Vector2f(300,300));
+            sf::RenderStates states;
+            float shaderAngle = angle+Math::HALF_PI;
+            if ( shaderAngle < 0.0) shaderAngle += Math::TWO_PI;
+
+            this->shader.setUniform("angle",(Math::TWO_PI-shaderAngle)/Math::TWO_PI);
+            states.shader = &this->shader;
+            canvas->draw(rect,states);
+
+            //Indicator
+            sf::RectangleShape indicator;
+            indicator.setOutlineColor(sf::Color::Black);
+            indicator.setOutlineThickness(2.f);
+            indicator.setFillColor(sf::Color::Transparent);
+            indicator.setPosition(150.f+std::sin(angle)*135.f,150.f+std::cos(angle)*135.f);
+            indicator.setSize(sf::Vector2f(30.f,7.f));
+            indicator.setRotation(-Math::rad_to_deg(angle+Math::HALF_PI));
+            indicator.setOrigin(15.0f,3.5f);
+            canvas->draw(indicator);
+
+            //Display the canvas
+            canvas->display();
+
+            //Update EditBoxes
+
+			float s = 1,v=1;
+			sf::Vector3f rgb= Math::hsv_to_rgb(sf::Vector3f(Math::rad_to_deg(shaderAngle),s,v));
+
+          	std::static_pointer_cast<tgui::EditBox>(this->window->get("rValue"))->setText(std::to_string(static_cast<int>(rgb.x*255.f)));
+          	std::static_pointer_cast<tgui::EditBox>(this->window->get("gValue"))->setText(std::to_string(static_cast<int>(rgb.y*255.f)));
+          	std::static_pointer_cast<tgui::EditBox>(this->window->get("bValue"))->setText(std::to_string(static_cast<int>(rgb.z*255.f)));
+          	std::static_pointer_cast<tgui::EditBox>(this->window->get("hValue"))->setText(std::to_string(static_cast<int>(Math::rad_to_deg(Math::TWO_PI-shaderAngle))));
+        }
+
+        if(this->holdInside)
+        {
+            //Calculate angle
+            const sf::Vector2f center = this->window->get("colorPickerCanvas")->getAbsolutePosition()+sf::Vector2f(150.0f,150.0f);
+            const float angle = std::atan2(e.mouseMove.x-center.x,e.mouseMove.y-center.y);
+
+            //Update canvas
+            tgui::Canvas::Ptr canvas = std::static_pointer_cast<tgui::Canvas>(this->window->get("colorPickerCanvas"));
+            canvas->clear(sf::Color(230,230,230)); //Default background color of tgui
+            sf::RectangleShape rect;
+            rect.setSize(sf::Vector2f(300,300));
+            sf::RenderStates states;
+            float shaderAngle = angle+Math::HALF_PI;
+            if ( shaderAngle < 0.0) shaderAngle += Math::TWO_PI;
+
+            this->shader.setUniform("angle",(Math::TWO_PI-shaderAngle)/Math::TWO_PI);
+            states.shader = &this->shader;
+            canvas->draw(rect,states);
+
+            //Indicator
+            sf::CircleShape cs;
+            cs.setRadius(5);
+            cs.setFillColor(sf::Color::Transparent);
+            cs.setOutlineColor(sf::Color::Black);
+            cs.setOutlineThickness(2);
+            cs.setPosition(sf::Vector2f(e.mouseMove.x,e.mouseMove.y));
+            canvas->draw(indicator);
+
+            //Display the canvas
+            canvas->display();
+
+        }
+    }
+}
+
+void ColorPickerWindow::show(ColorPicker* colorPicker)
+{
+    this->colorPicker = colorPicker;
+    this->window->show();
+}
+/*
+ColorPicker::ColorPicker()
+{
+	create();
+}
+
+ColorPicker::ColorPicker(sf::Color color)
+{
+	this->color = color;
+	create();
+}
+
+void ColorPicker::create()
+{
+	this->panel = tgui::Panel::create();
+	this->panel->setSize(25,25);
+	this->panel->getRenderer()->setBorderColor(sf::Color::Black);
+	this->panel->setBackgroundColor(this->color);
+	this->panel->connect("Clicked",[&](){
+		Tool::levelEditor->colorPickerWindow->show(this);
+	});
+}
+
+sf::Color ColorPicker::getColor()
+{
+	return this->color;
+}
+
+void ColorPicker::setColor(sf::Color color)
+{
+	this->color = color;
+	this->panel->setBackgroundColor(color);
+}
+
+tgui::Panel::Ptr ColorPicker::getWidget()
+{
+	return this->panel;
+}
+*/

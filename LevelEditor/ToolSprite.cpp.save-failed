@@ -1,0 +1,38 @@
+#include "../LevelEditor/ToolSprite.hpp"
+ToolSprite::ToolSprite()
+{
+	this->name = "Sprite tool";
+	colorPicker(new ColorPicker(Tool::levelEditor->colorPickerWindow));
+}
+
+void ToolSprite::init_gui(tgui::Gui& gui)
+{
+	this->toolWindow = tgui::ChildWindow::create();
+	this->toolWindow->setSize(300,900);
+	this->toolWindow->setPosition(40,60);
+	this->toolWindow->setTitle(this->name);
+	this->toolWindow->connect("Closed",[&](){
+		this->toolWindow->hide();
+	});
+	this->toolWindow->keepInParent();
+	this->toolWindow->hide();
+	gui.add(this->toolWindow);
+
+	this->toolWindow->add(this->colorPicker.getWidget());
+}
+void ToolSprite::draw(sf::RenderTarget& target)
+{
+
+}
+void ToolSprite::event(sf::Event& e)
+{
+
+}
+void ToolSprite::selected()
+{
+	this->toolWindow->show();
+}
+void ToolSprite::unselected()
+{
+	this->toolWindow->hide();
+}
